@@ -1,0 +1,37 @@
+name: Daily SOXL/GOOGL retail noise update
+
+on:
+  schedule:
+    # 22:30 UTC, Mon-Fri = 17:30/18:30 US Eastern (after the close, summer or winter time)
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch: {}   # lets you run it manually from the GitHub app/website
+
+permissions:
+  contents: write   # needed to commit the updated CSV and charts back
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Chinese font (for chart labels)
+        run: sudo apt-get -qq update && sudo apt-get -qq install -y fonts-wqy-microhei
+
+      - run: pip install -r requirements.txt
+
+      # update.py: fetch only new Yahoo data, append to data/*.csv, redraw charts into output/*_latest.png
+      - run: python update.py
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add data output
+          git diff --cached --quiet || git commit -m "Update $(date -u +%F)"
+          git push
